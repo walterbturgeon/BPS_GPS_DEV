@@ -1,4 +1,20 @@
-const CACHE = 'draglog-v98';
+// ⚠ LES DEUX PWA PARTAGENT UNE ORIGINE (16 aout 2026).
+// walterbturgeon.github.io/BPS_GPS/ (production) et .../BPS_GPS_DEV/ (cette
+// version de travail) sont des pages de PROJET : meme schema, meme hote,
+// meme port = MEME ORIGINE. Or `caches.keys()` liste les caches de toute
+// l'origine, pas ceux du dossier.
+//
+// L'ancien nettoyage supprimait TOUT cache dont le nom differait du sien.
+// Resultat : chaque PWA effacait le cache de l'autre a chaque activation,
+// et le mode hors ligne devenait imprevisible -- precisement ce qui sert en
+// piste quand le reseau est mauvais.
+//
+// Correction : un PREFIXE par PWA, et on ne nettoie que ses propres versions.
+// ⚠ La PWA de production (DRAGLOG_v7/webapp, cache `draglog-v96`) porte
+// ENCORE l'ancien filtre : tant qu'elle n'aura pas la meme correction, elle
+// continuera d'effacer ce cache-ci. Les deux doivent etre corrigees.
+const PREFIX = 'draglog-dev-';
+const CACHE = PREFIX + 'v98';
 const ASSETS = ['./', './index.html', './manifest.json', './logo.svg', './icon-192.webp', './icon-512.webp'];
 
 self.addEventListener('install', (ev) => {
@@ -8,7 +24,9 @@ self.addEventListener('install', (ev) => {
 
 self.addEventListener('activate', (ev) => {
   ev.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))
+    ))
   );
   self.clients.claim();
 });
