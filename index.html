@@ -125,6 +125,9 @@ A refaire si le module est remonte ou change de vehicule.
 <div class="card"><h2>Configuration</h2>
 <form id="cfgForm" onsubmit="return submitConfig(event)">
 
+<div id="fwBanner" class="small" style="display:none;padding:10px 12px;border-radius:8px;
+     background:#fff8e1;border:1px solid #e0c880;margin-bottom:14px;"></div>
+
 <label for="mode">Mode CAN</label>
 <select id="mode" name="mode" onchange="syncBitrateToMode()">
 <option value="LINK">Link AEM 30-2206</option>
@@ -134,6 +137,7 @@ A refaire si le module est remonte ou change de vehicule.
 <option value="ECUMASTER">ECUMaster GPStoCAN V2</option>
 </select>
 
+<div id="grp_cbr">
 <label for="cbr">Debit du bus CAN</label>
 <select id="cbr" name="cbr">
 <option value="125000">125 kbit/s</option>
@@ -146,10 +150,12 @@ debit ne donne aucun message d'erreur, seulement zero trame.
 Changer de mode CAN remet le debit par defaut du mode ; tu peux ensuite le rechanger.
 Le mode <b>Holley Expander</b> force 1 Mbit/s : c'est le debit du bus Dominator.
 Le nouveau debit prend effet <b>tout de suite</b>, sans redemarrage.</p>
+</div>
 
 <label for="hid">ID expander Holley (0-2047, # module cote Holley EFI)</label>
 <input id="hid" name="hid" type="number" min="0" max="2047" value="1500">
 
+<div id="grp_ecid">
 <label for="ecid">ID de base ECUMaster (0-2042, defaut 1024 = 0x400)</label>
 <input id="ecid" name="ecid" type="number" min="0" max="2042" value="1024"
        oninput="syncEcuRange()">
@@ -165,6 +171,7 @@ jalon affiche et l'etat de course.
 <b>Cette trame n'existe pas chez ECUMaster</b>, elle est propre au DRAGLOG.</li>
 </ul>
 <p class="small">Ne change cette valeur que si un autre appareil occupe deja la plage.</p>
+</div>
 
 <label for="sfx">Nom Bluetooth (5 caracteres au maximum)</label>
 <input id="sfx" name="sfx" type="text" maxlength="5" value="00001"
@@ -174,6 +181,7 @@ jalon affiche et l'etat de course.
 Lettres, chiffres, <b>-</b> et <b>_</b> uniquement. Effectif <b>au redemarrage</b> du module.</p>
 <div id="sfxErr" class="small" style="color:#b00;"></div>
 
+<div id="grp_scid">
 <h3 style="margin:22px 0 0 0;font-size:16px;">Declencheur de chrono par CAN</h3>
 <p class="small">Surveille un bit dans une trame que ton ECU envoie — sortie
 transbrake, contacteur, bouton de depart. Laisse l'ID a <b>0</b> pour le desactiver.
@@ -213,6 +221,7 @@ Le seuil GPS et l'entree physique continuent de fonctionner en parallele.</p>
 le Holley. Si ta sortie est de polarite inverse, prends montant. La toute premiere
 trame recue ne declenche jamais — sinon un module allume alors que la sortie est
 deja active partirait tout seul.</p>
+</div>
 
 <label for="pfft">Distance partielle supplementaire</label>
 <select id="pfft" name="pfft"></select>
@@ -1140,6 +1149,63 @@ function lockBitrateIfHolley() {
   cbr.disabled = holley;
 }
 
+// =====================================================
+// [v8.2] COMPATIBILITE AVEC LES FIRMWARES DEJA SUR LE TERRAIN
+// =====================================================
+// Une seule page sert des modules de generations differentes. Deux faits du
+// firmware dictent la methode :
+//
+// 1. Les cles INCONNUES sont inoffensives. applyConfigJson ne lit que les
+//    cles qu'il connait ; tout le reste du JSON est ignore. On peut donc
+//    envoyer un surensemble sans rien casser.
+//
+// 2. Une VALEUR inconnue casse TOUT. Le firmware v7 fait
+//    `else return false` sur un mode qu'il ne connait pas -> la sauvegarde
+//    entiere est rejetee, pas seulement ce champ. Proposer ECUMASTER a un
+//    module v7 lui ferait perdre aussi le fuseau, le jalon partiel, etc.
+//
+// D'ou la regle : on n'affiche un reglage QUE si sa cle est revenue du
+// module, et on ne propose un mode QUE si la capacite correspondante existe.
+//
+// ⚠ ON NE SE FIE PAS AU NUMERO DE VERSION. Sur ce projet il ne prouve rien :
+// `fw=v7.9.00` a couvert TROIS builds fonctionnellement differents. Le JSON
+// CONFIG, lui, est la verite terrain -- c'est le firmware qui declare ce
+// qu'il sait faire. Une cle presente est une preuve, un numero non.
+var CAPS = [
+  { grp: 'grp_cbr',  cle: 'cbr',  nom: 'debit CAN reglable' },
+  { grp: 'grp_ecid', cle: 'ecid', nom: 'mode ECUMaster' },
+  { grp: 'grp_scid', cle: 'scid', nom: 'declencheur CAN' }
+];
+
+function appliquerCapacites(j) {
+  var manquants = [];
+  CAPS.forEach(function (c) {
+    var present = (j[c.cle] != null);
+    var el = document.getElementById(c.grp);
+    if (el) el.style.display = present ? '' : 'none';
+    if (!present) manquants.push(c.nom);
+  });
+
+  // Le mode ECUMaster se deduit de la presence de son ID de base. Le laisser
+  // selectionnable sur un firmware qui l'ignore ferait echouer la sauvegarde
+  // COMPLETE, pas seulement ce champ.
+  var opt = document.querySelector('#mode option[value="ECUMASTER"]');
+  if (opt) {
+    var ok = (j.ecid != null);
+    opt.hidden = !ok;
+    opt.disabled = !ok;
+  }
+
+  var b = document.getElementById('fwBanner');
+  if (!b) return;
+  if (manquants.length === 0) { b.style.display = 'none'; return; }
+  b.style.display = '';
+  b.innerHTML = '<b>Firmware plus ancien detecte.</b> Ce module ne connait pas : '
+              + manquants.join(', ')
+              + '. Ces reglages sont masques — les afficher ne servirait a rien, '
+              + 'et proposer un mode inconnu ferait echouer toute la sauvegarde.';
+}
+
 // [v8.2] Declencheur CAN. Les deux echos servent a attraper une faute de
 // frappe avant de sauvegarder : un ID se lit en hexadecimal partout ailleurs
 // (analyseur, doc ECU), et un masque de bits ne se verifie qu'en binaire.
@@ -1177,7 +1243,23 @@ async function refreshConfig() {
   if (!chrConfig) return;
   var j;
   try { j = JSON.parse(dec.decode(await chrConfig.readValue())); } catch (e) { return; }
-  document.getElementById('mode').value = j.mode;
+
+  // AVANT de remplir les champs : le firmware declare ses capacites par les
+  // cles de son propre JSON, et l'option ECUMASTER doit etre reactivee avant
+  // qu'on tente de la selectionner ci-dessous.
+  appliquerCapacites(j);
+
+  var selMode = document.getElementById('mode');
+  selMode.value = j.mode;
+  // Garde-fou : un mode que la page ne connait pas laisserait le select a "",
+  // et la sauvegarde renverrait mode:"" -> refus du firmware. On ajoute
+  // l'option telle quelle plutot que de renvoyer une valeur vide.
+  if (selMode.value !== j.mode) {
+    var o = document.createElement('option');
+    o.value = j.mode; o.text = j.mode + ' (inconnu de cette page)';
+    selMode.appendChild(o);
+    selMode.value = j.mode;
+  }
   if (j.cbr != null) document.getElementById('cbr').value = j.cbr;
   lockBitrateIfHolley();
   document.getElementById('hid').value = j.hid;
