@@ -174,6 +174,46 @@ jalon affiche et l'etat de course.
 Lettres, chiffres, <b>-</b> et <b>_</b> uniquement. Effectif <b>au redemarrage</b> du module.</p>
 <div id="sfxErr" class="small" style="color:#b00;"></div>
 
+<h3 style="margin:22px 0 0 0;font-size:16px;">Declencheur de chrono par CAN</h3>
+<p class="small">Surveille un bit dans une trame que ton ECU envoie — sortie
+transbrake, contacteur, bouton de depart. Laisse l'ID a <b>0</b> pour le desactiver.
+Le seuil GPS et l'entree physique continuent de fonctionner en parallele.</p>
+
+<label for="scid">ID CAN a surveiller (0 = desactive)</label>
+<input id="scid" name="scid" type="number" min="0" max="536870911" value="0"
+       oninput="syncCanTrig()">
+<div id="scidHex" class="small"></div>
+
+<label for="scext">Format de l'identifiant</label>
+<select id="scext" name="scext" onchange="syncCanTrig()">
+<option value="0">11 bits (standard)</option>
+<option value="1">29 bits (etendu)</option>
+</select>
+
+<div class="row">
+<div>
+<label for="scby">Octet (0-7)</label>
+<input id="scby" name="scby" type="number" min="0" max="7" value="0">
+</div>
+<div>
+<label for="scmk">Masque de bits (1-255)</label>
+<input id="scmk" name="scmk" type="number" min="1" max="255" value="1"
+       oninput="syncCanTrig()">
+</div>
+</div>
+<div id="scmkBin" class="small"></div>
+
+<label for="sced">Front qui demarre le chrono</label>
+<select id="sced" name="sced">
+<option value="2">Descendant — le bit passe a 0</option>
+<option value="1">Montant — le bit passe a 1</option>
+<option value="0">Desactive</option>
+</select>
+<p class="small">Descendant correspond au <b>relachement</b> du transbrake, comme sur
+le Holley. Si ta sortie est de polarite inverse, prends montant. La toute premiere
+trame recue ne declenche jamais — sinon un module allume alors que la sortie est
+deja active partirait tout seul.</p>
+
 <label for="pfft">Distance partielle supplementaire</label>
 <select id="pfft" name="pfft"></select>
 <p class="small">Jalon libre en plus des 60 / 330 / 660 / 1320 pieds,
@@ -1100,6 +1140,33 @@ function lockBitrateIfHolley() {
   cbr.disabled = holley;
 }
 
+// [v8.2] Declencheur CAN. Les deux echos servent a attraper une faute de
+// frappe avant de sauvegarder : un ID se lit en hexadecimal partout ailleurs
+// (analyseur, doc ECU), et un masque de bits ne se verifie qu'en binaire.
+function syncCanTrig() {
+  var id = parseInt(document.getElementById('scid').value, 10);
+  var ext = document.getElementById('scext').value === '1';
+  var eh = document.getElementById('scidHex');
+  if (eh) {
+    var maxId = ext ? 0x1FFFFFFF : 0x7FF;
+    if (isNaN(id) || id === 0) eh.textContent = 'Declencheur desactive.';
+    else if (id > maxId) eh.textContent = 'Hors plage : ' + (ext ? '29 bits' : '11 bits')
+                                          + ' s’arrete a 0x' + maxId.toString(16).toUpperCase() + '.';
+    else eh.textContent = 'Soit 0x' + id.toString(16).toUpperCase() + ' en hexadecimal.';
+  }
+  var mk = parseInt(document.getElementById('scmk').value, 10);
+  var eb = document.getElementById('scmkBin');
+  if (eb) {
+    if (isNaN(mk) || mk < 1 || mk > 255) eb.textContent = 'Masque invalide (1 a 255).';
+    else {
+      var bits = [];
+      for (var i = 7; i >= 0; i--) if (mk & (1 << i)) bits.push('bit ' + i);
+      eb.textContent = 'Binaire ' + ('0000000' + mk.toString(2)).slice(-8)
+                       + ' — retient ' + bits.join(', ') + '.';
+    }
+  }
+}
+
 function syncBitrateToMode() {
   var m = document.getElementById('mode').value;
   if (CBR_DEFAUT[m] != null) document.getElementById('cbr').value = String(CBR_DEFAUT[m]);
@@ -1116,6 +1183,12 @@ async function refreshConfig() {
   document.getElementById('hid').value = j.hid;
   if (j.ecid != null) document.getElementById('ecid').value = j.ecid;
   syncEcuRange();
+  if (j.scid  != null) document.getElementById('scid').value  = j.scid;
+  if (j.scext != null) document.getElementById('scext').value = j.scext ? '1' : '0';
+  if (j.scby  != null) document.getElementById('scby').value  = j.scby;
+  if (j.scmk  != null) document.getElementById('scmk').value  = j.scmk;
+  if (j.sced  != null) document.getElementById('sced').value  = j.sced;
+  syncCanTrig();
   document.getElementById('grate').value = j.grate;
   document.getElementById('dynm').value = j.dynm;
   if (j.hecu != null) document.getElementById('hecu').value = j.hecu;
@@ -1150,6 +1223,11 @@ async function submitConfig(ev) {
     cbr: parseInt(document.getElementById('cbr').value, 10),
     hid: parseInt(document.getElementById('hid').value, 10),
     ecid: parseInt(document.getElementById('ecid').value, 10),
+    scid: parseInt(document.getElementById('scid').value, 10),
+    scext: document.getElementById('scext').value === '1' ? 1 : 0,
+    scby: parseInt(document.getElementById('scby').value, 10),
+    scmk: parseInt(document.getElementById('scmk').value, 10),
+    sced: parseInt(document.getElementById('sced').value, 10),
     grate: parseInt(document.getElementById('grate').value, 10),
     pfft: parseInt(document.getElementById('pfft').value, 10),
     sfx: syncUnitName(),
