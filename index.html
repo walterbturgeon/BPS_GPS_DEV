@@ -150,17 +150,19 @@ Le nouveau debit prend effet <b>tout de suite</b>, sans redemarrage.</p>
 <label for="hid">ID expander Holley (0-2047, # module cote Holley EFI)</label>
 <input id="hid" name="hid" type="number" min="0" max="2047" value="1500">
 
-<label for="ecid">ID de base ECUMaster (0-2040, defaut 1024 = 0x400)</label>
-<input id="ecid" name="ecid" type="number" min="0" max="2040" value="1024"
+<label for="ecid">ID de base ECUMaster (0-2042, defaut 1024 = 0x400)</label>
+<input id="ecid" name="ecid" type="number" min="0" max="2042" value="1024"
        oninput="syncEcuRange()">
-<p class="small">Le flux occupe <b id="ecidRange">0x400 a 0x407</b>, en
+<p class="small">Le flux occupe <b id="ecidRange">0x400 a 0x405</b>, en
 identifiants standards 11 bits et <b>big endian</b> :</p>
 <ul class="small" style="margin:4px 0 0 0;padding-left:20px;">
 <li><b id="ecidGps">0x400 a 0x404</b> — format ECUMaster GPStoCAN V2, 25 Hz :
 position, vitesse et altitude, caps, IMU, date et heure UTC.</li>
-<li><b id="ecidPerf">0x405 a 0x407</b> — jalons de drag, 10 Hz :
-temps 60/330/660/1320, vitesses, jalon partiel et etat de course.
-<b>Ces trois trames n'existent pas chez ECUMaster</b>, elles sont propres au DRAGLOG.</li>
+<li><b id="ecidPerf">0x405</b> — jalons de drag, 10 Hz : <b>escalier des temps</b>
+et <b>escalier des vitesses</b> (ils montent d'une marche a chaque jalon et
+tiennent la valeur, comme les canaux Holley et FuelTech), plus la distance du
+jalon affiche et l'etat de course.
+<b>Cette trame n'existe pas chez ECUMaster</b>, elle est propre au DRAGLOG.</li>
 </ul>
 <p class="small">Ne change cette valeur que si un autre appareil occupe deja la plage.</p>
 
@@ -1078,14 +1080,14 @@ function syncEcuRange() {
   var g = document.getElementById('ecidGps');
   var p = document.getElementById('ecidPerf');
   if (!t || !g || !p) return;
-  if (isNaN(b) || b < 0 || b > 2040) {
+  if (isNaN(b) || b < 0 || b > 2042) {
     t.textContent = 'valeur hors plage'; g.textContent = '--'; p.textContent = '--';
     return;
   }
   var hex = function (v) { return '0x' + v.toString(16).toUpperCase(); };
-  t.textContent = hex(b)     + ' a ' + hex(b + 7);
-  g.textContent = hex(b)     + ' a ' + hex(b + 4);
-  p.textContent = hex(b + 5) + ' a ' + hex(b + 7);
+  t.textContent = hex(b) + ' a ' + hex(b + 5);
+  g.textContent = hex(b) + ' a ' + hex(b + 4);
+  p.textContent = hex(b + 5);
 }
 
 // Le bus Holley Dominator est a 1 Mbit/s : ce n'est pas un choix. Le
