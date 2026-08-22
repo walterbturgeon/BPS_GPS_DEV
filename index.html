@@ -128,6 +128,70 @@ A refaire si le module est remonte ou change de vehicule.
 <div id="fwBanner" class="small" style="display:none;padding:10px 12px;border-radius:8px;
      background:#fff8e1;border:1px solid #e0c880;margin-bottom:14px;"></div>
 
+<!-- ============ PANNEAU DLAP ============ -->
+<!-- Affiche UNIQUEMENT quand le module repond "dev":"DLAP". Tous les
+     reglages DRAGLOG sont alors masques : ce n'est pas le meme appareil. -->
+<div id="panDlap" style="display:none;">
+<div class="small" style="padding:10px 12px;border-radius:8px;background:#e8f1eb;
+     border:1px solid #a8ccb5;margin-bottom:14px;">
+<b>DLAP connecte.</b> Ce module ne mesure rien : il collecte les runs des
+DLPT2 par radio et les depose sur GitHub. Les reglages ci-dessous sont les siens.
+</div>
+
+<h3 style="margin:18px 0 0 0;font-size:16px;">Reseau principal</h3>
+<label for="dssid1">Nom du reseau (SSID)</label>
+<input id="dssid1" type="text" autocomplete="off" spellcheck="false"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+<label for="dpass1">Mot de passe</label>
+<input id="dpass1" type="password" autocomplete="new-password"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+<p class="small" id="dpass1Etat"></p>
+
+<h3 style="margin:18px 0 0 0;font-size:16px;">Reseau de repli</h3>
+<p class="small">Essaye seulement si le principal ne repond pas. Laisse vide
+pour desactiver. L'ordre est volontaire&nbsp;: on ne veut pas basculer sur un
+partage de connexion quand le WiFi de l'atelier est disponible.</p>
+<label for="dssid2">Nom du reseau (SSID)</label>
+<input id="dssid2" type="text" autocomplete="off" spellcheck="false"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+<label for="dpass2">Mot de passe</label>
+<input id="dpass2" type="password" autocomplete="new-password"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+<p class="small" id="dpass2Etat"></p>
+
+<h3 style="margin:18px 0 0 0;font-size:16px;">Depot GitHub</h3>
+<div class="row">
+<div>
+<label for="dgho">Proprietaire</label>
+<input id="dgho" type="text" autocomplete="off" spellcheck="false"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+</div>
+<div>
+<label for="dghr">Depot</label>
+<input id="dghr" type="text" autocomplete="off" spellcheck="false"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+</div>
+</div>
+<label for="dghb">Branche</label>
+<input id="dghb" type="text" autocomplete="off" spellcheck="false"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+
+<label for="dtok">Jeton GitHub</label>
+<input id="dtok" type="password" autocomplete="new-password"
+       style="width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+<p class="small" id="dtokEtat"></p>
+<p class="small">Jeton fine-grained, limite au depot ci-dessus, permission
+<b>Contents: Read and write</b>. Mets-lui une date d'expiration.</p>
+
+<div class="small" style="padding:10px 12px;border-radius:8px;background:#fff8e1;
+     border:1px solid #e0c880;margin-top:14px;">
+<b>Les champs secrets ne sont jamais relus.</b> Le DLAP ne renvoie que
+&laquo;&nbsp;rempli&nbsp;&raquo; ou &laquo;&nbsp;vide&nbsp;&raquo;, jamais la valeur.
+Laisse un champ secret vide pour le <b>conserver tel quel</b>&nbsp;; ecris dedans
+pour le remplacer.
+</div>
+</div>
+
 <label for="mode">Mode CAN</label>
 <select id="mode" name="mode" onchange="syncBitrateToMode()">
 <option value="LINK">Link AEM 30-2206</option>
@@ -337,20 +401,29 @@ async function connect() {
     bleServer = await bleDevice.gatt.connect();
     const svc = await bleServer.getPrimaryService(SVC_UUID);
 
-    chrTelemetry = await svc.getCharacteristic(CHR_TELEMETRY);
-    chrState     = await svc.getCharacteristic(CHR_STATE);
-    chrConfig    = await svc.getCharacteristic(CHR_CONFIG);
-    chrCommand   = await svc.getCharacteristic(CHR_COMMAND);
-    chrDump      = await svc.getCharacteristic(CHR_DUMP);
+    // ⚠ SEULE CONFIG EST OBLIGATOIRE. Le DLAP n'expose QUE celle-la : pas de
+    // telemetrie, pas d'etat, pas de commande, pas de dump. Les reclamer
+    // toutes faisait echouer la connexion des la premiere absente.
+    var optionnelle = async function (uuid) {
+      try { return await svc.getCharacteristic(uuid); } catch (e) { return null; }
+    };
+    chrConfig    = await svc.getCharacteristic(CHR_CONFIG);   // requise
+    chrTelemetry = await optionnelle(CHR_TELEMETRY);
+    chrState     = await optionnelle(CHR_STATE);
+    chrCommand   = await optionnelle(CHR_COMMAND);
+    chrDump      = await optionnelle(CHR_DUMP);
 
-    await chrTelemetry.startNotifications();
-    chrTelemetry.addEventListener('characteristicvaluechanged', onTelemetry);
-    await chrDump.startNotifications();
-    chrDump.addEventListener('characteristicvaluechanged', onDumpChunk);
+    if (chrTelemetry) {
+      await chrTelemetry.startNotifications();
+      chrTelemetry.addEventListener('characteristicvaluechanged', onTelemetry);
+    }
+    if (chrDump) {
+      await chrDump.startNotifications();
+      chrDump.addEventListener('characteristicvaluechanged', onDumpChunk);
+    }
 
-    await refreshState();
+    if (chrState) { await refreshState(); stateTimer = setInterval(refreshState, 3000); }
     await refreshConfig();
-    stateTimer = setInterval(refreshState, 3000);
 
     document.getElementById('btnConnect').textContent = 'Deconnecter';
     document.getElementById('btnConnect').onclick = disconnect;
@@ -1171,6 +1244,56 @@ function lockBitrateIfHolley() {
 // `fw=v7.9.00` a couvert TROIS builds fonctionnellement differents. Le JSON
 // CONFIG, lui, est la verite terrain -- c'est le firmware qui declare ce
 // qu'il sait faire. Une cle presente est une preuve, un numero non.
+// [22 aout 2026] Le DLAP est un APPAREIL DIFFERENT, pas une variante de
+// firmware : il ne mesure rien, il collecte. On ne masque donc pas trois
+// reglages comme pour un vieux DRAGLOG -- on bascule toute la page.
+var estDlap = false;
+
+function appliquerModeDlap(dlap) {
+  estDlap = dlap;
+
+  // Cartes : en mode DLAP on ne garde que Connexion et Configuration.
+  // Le graphique de vitesse, l'etat GPS et l'archivage n'ont aucun sens ici.
+  document.querySelectorAll('.card').forEach(function (c) {
+    var garder = (c.id === 'connCard') || !!c.querySelector('#cfgForm');
+    c.style.display = (dlap && !garder) ? 'none' : '';
+  });
+
+  // Dans le formulaire : tout masquer sauf le panneau DLAP, la banniere et
+  // les boutons. Plus sur qu'une liste d'identifiants a maintenir.
+  var form = document.getElementById('cfgForm');
+  Array.prototype.forEach.call(form.children, function (el) {
+    if (el.id === 'panDlap')  { el.style.display = dlap ? '' : 'none'; return; }
+    if (el.id === 'fwBanner') return;                    // gere par les CAPS
+    if (el.id === 'cfgMsg')   return;
+    if (el.tagName === 'BUTTON') {
+      // Redemarrer passe par la caracteristique COMMAND, absente du DLAP.
+      var cmdSeule = (el.value === 'reboot' || el.value === 'save_reboot');
+      el.style.display = (dlap && cmdSeule) ? 'none' : '';
+      return;
+    }
+    el.style.display = dlap ? 'none' : '';
+  });
+}
+
+function remplirDlap(j) {
+  document.getElementById('dssid1').value = j.ssid1 || '';
+  document.getElementById('dssid2').value = j.ssid2 || '';
+  document.getElementById('dgho').value   = j.gho   || '';
+  document.getElementById('dghr').value   = j.ghr   || '';
+  document.getElementById('dghb').value   = j.ghb   || '';
+  // Les secrets ne reviennent jamais : on n'affiche que leur presence.
+  var etat = function (id, present) {
+    document.getElementById(id).textContent =
+      present ? 'Deja enregistre. Laisse vide pour le conserver.'
+              : 'Aucune valeur enregistree.';
+  };
+  etat('dpass1Etat', !!j.haspass1);
+  etat('dpass2Etat', !!j.haspass2);
+  etat('dtokEtat',   !!j.hastok);
+  ['dpass1','dpass2','dtok'].forEach(function (i) { document.getElementById(i).value = ''; });
+}
+
 var CAPS = [
   { grp: 'grp_cbr',  cle: 'cbr',  nom: 'debit CAN reglable' },
   { grp: 'grp_ecid', cle: 'ecid', nom: 'mode ECUMaster' },
@@ -1178,6 +1301,15 @@ var CAPS = [
 ];
 
 function appliquerCapacites(j) {
+  // Un DLAP n'est pas un DRAGLOG diminue : on bascule la page entiere et on
+  // sort. La banniere "firmware plus ancien" n'aurait aucun sens ici.
+  if (j.dev === 'DLAP') {
+    appliquerModeDlap(true);
+    document.getElementById('fwBanner').style.display = 'none';
+    return;
+  }
+  appliquerModeDlap(false);
+
   var manquants = [];
   CAPS.forEach(function (c) {
     var present = (j[c.cle] != null);
@@ -1249,6 +1381,10 @@ async function refreshConfig() {
   // qu'on tente de la selectionner ci-dessous.
   appliquerCapacites(j);
 
+  // Le DLAP n'a aucun des champs qui suivent : on remplit son panneau et on
+  // sort, sinon on ecrirait "undefined" partout.
+  if (j.dev === 'DLAP') { remplirDlap(j); return; }
+
   var selMode = document.getElementById('mode');
   selMode.value = j.mode;
   // Garde-fou : un mode que la page ne connait pas laisserait le select a "",
@@ -1288,8 +1424,38 @@ async function refreshConfig() {
 async function submitConfig(ev) {
   ev.preventDefault();
   var msg = document.getElementById('cfgMsg');
-  if (!chrConfig || !chrCommand) {
+  // ⚠ Ne PAS exiger chrCommand : le DLAP ne l'expose pas, et l'exiger
+  // bloquait toute sauvegarde chez lui. Seule CONFIG est indispensable.
+  if (!chrConfig) {
     msg.innerHTML = "<div class='err'>Non connecte au module BLE.</div>";
+    return false;
+  }
+
+  // ---- Cas DLAP : rien a voir avec la config d'un DRAGLOG ----
+  if (estDlap) {
+    var d = {
+      ssid1: document.getElementById('dssid1').value,
+      ssid2: document.getElementById('dssid2').value,
+      gho:   document.getElementById('dgho').value,
+      ghr:   document.getElementById('dghr').value,
+      ghb:   document.getElementById('dghb').value
+    };
+    // Un champ secret laisse VIDE conserve la valeur enregistree -- on ne
+    // l'envoie tout simplement pas. C'est la seule facon de le preserver,
+    // puisque le DLAP ne nous le renvoie jamais.
+    var p1 = document.getElementById('dpass1').value;
+    var p2 = document.getElementById('dpass2').value;
+    var tk = document.getElementById('dtok').value;
+    if (p1) d.pass1 = p1;
+    if (p2) d.pass2 = p2;
+    if (tk) d.tok   = tk;
+    try {
+      await chrConfig.writeValueWithResponse(enc.encode(JSON.stringify(d)));
+      msg.innerHTML = "<div class='ok'>Configuration du DLAP enregistree.</div>";
+      await refreshConfig();
+    } catch (e) {
+      msg.innerHTML = "<div class='err'>Echec : " + e.message + "</div>";
+    }
     return false;
   }
   var action = ev.submitter ? ev.submitter.value : 'save';
