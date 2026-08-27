@@ -121,7 +121,12 @@ bouton qui ne repond jamais vaut moins que pas de bouton.
 2. Ajouter le champ dans `index.html`.
 3. Ajouter une entree dans `CAPS` avec la cle temoin. Le masquage automatique
    devant un firmware plus ancien vient gratuitement.
-4. **Incrementer `CACHE` dans `service-worker.js`.** Sans ca, les telephones
+4. **Incrementer `CACHE` dans `service-worker.js` ET le numero affiche en
+   haut de `index.html`.** Les deux vont ensemble : le premier force le
+   rafraichissement, le second permet de VERIFIER d'un coup d'oeil quelle
+   version le navigateur sert vraiment. Le 27 aout 2026, une heure a ete
+   perdue a chercher un defaut de firmware alors que la page affichee
+   datait de trois versions plus tot. Sans ca, les telephones
    qui ont deja installe la PWA gardent l'ancienne page, et on cherche
    pourquoi le nouveau reglage n'apparait pas.
 

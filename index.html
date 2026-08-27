@@ -111,6 +111,13 @@ select:focus-visible,input:focus-visible,button:focus-visible,a:focus-visible{
 <div id="entete">
 <img src="logo.svg" alt="DRAGLOG" style="display:block;height:auto;width:auto;max-width:220px;max-height:110px;margin:4px auto 20px;">
 <button type="button" id="themeBtn" onclick="basculerTheme()" title="Clair, sombre, ou comme le telephone">🌗</button>
+<!-- ⚠ VERSION DE LA PAGE, VISIBLE.
+     Sans elle, impossible de savoir en un coup d'oeil si le navigateur sert
+     la page publiee ou une copie gardee en cache. Le 27 aout 2026 on a
+     cherche pendant une heure un defaut de firmware alors que la page
+     affichee datait de trois versions plus tot.
+     A monter EN MEME TEMPS que CACHE dans service-worker.js. -->
+<div class="small" style="text-align:center;margin:-12px 0 16px;opacity:.65;">page v106</div>
 </div>
 
 <script>
