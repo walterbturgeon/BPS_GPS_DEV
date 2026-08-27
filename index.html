@@ -727,8 +727,12 @@ function rendreHistorique(runs) {
     var cell = "padding:7px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;";
     h += "<tr" + (abandon ? " style='opacity:.62'" : "") + ">";
     h += "<td style='" + cell + "padding-left:0;'><b>" + (r.unit || '?') + "</b></td>";
+    // Le DLAP ne connaît la date que s'il a vu le réseau : il ne s'y connecte
+    // que pour déposer. Sans heure NTP il écrit 2000-00-00, et afficher ça
+    // ferait douter de tout le reste de la ligne, qui est pourtant juste.
+    var dateOk = r.date && r.date.indexOf('-00-00') < 0 && r.date.indexOf('2000-') !== 0;
     h += "<td style='" + cell + "'>" + r.heure +
-         "<span class='small'> " + (r.date || '') + "</span>" +
+         (dateOk ? "<span class='small'> " + r.date + "</span>" : "") +
          (abandon ? "<br><span class='small'>abandon</span>" : "") + "</td>";
     h += "<td style='" + cell + "text-align:right;'>" + msVersS(r.t60) + "</td>";
     h += "<td style='" + cell + "text-align:right;'>" + msVersS(r.t660) + "</td>";
