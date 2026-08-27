@@ -265,8 +265,8 @@ Ne touche à rien pendant 3 secondes.<br>
      Le DLPT a deja sa propre carte de passages, juste au-dessus. -->
 <div class="card" id="cardHist" style="display:none;">
 <h2>Passages archivés</h2>
-<p class="small">Ce que le DLAP a déposé sur GitHub, du plus récent au plus ancien.
-Il en garde cent.</p>
+<p class="small">Ce que le DLAP a reçu, du plus récent au plus ancien. Il en garde
+trente. Une pastille indique ceux qui ne sont pas encore partis sur GitHub.</p>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
 <button type="button" class="btn btn3" id="btnHist" style="margin-top:0;" onclick="chargerHistorique()">Voir les passages</button>
 <span id="histStatus" class="small"></span>
@@ -698,7 +698,10 @@ function parseHistorique(texte) {
     out.push({
       seq: c[1], date: c[2], heure: c[3], unit: c[4], statut: c[5],
       t60: c[6], t330: c[7], v330: c[8], t660: c[9], v660: c[10],
-      t1320: c[11], v1320: c[12]
+      t1320: c[11], v1320: c[12],
+      // [DLAP-2.1] colonne ajoutee. Un DLAP plus ancien ne l'envoie pas :
+      // on suppose alors depose, faute de quoi tout s'afficherait en attente.
+      depose: (c.length > 13 ? c[13] : '1')
     });
   }
   return out;
@@ -726,7 +729,13 @@ function rendreHistorique(runs) {
     var abandon = (r.statut !== 'TERMINE');
     var cell = "padding:7px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;";
     h += "<tr" + (abandon ? " style='opacity:.62'" : "") + ">";
-    h += "<td style='" + cell + "padding-left:0;'><b>" + (r.unit || '?') + "</b></td>";
+    // Un passage reçu mais pas encore déposé se voit d'un coup d'œil. En
+    // piste il n'y a souvent aucun réseau : sans cette marque, on croirait
+    // tout archivé alors que rien n'est parti.
+    var attente = (r.depose === '0');
+    h += "<td style='" + cell + "padding-left:0;'><b>" + (r.unit || '?') + "</b>" +
+         (attente ? "<br><span class='small' style='color:var(--g);'>&#9679; pas encore envoyé</span>" : "") +
+         "</td>";
     // Le DLAP ne connaît la date que s'il a vu le réseau : il ne s'y connecte
     // que pour déposer. Sans heure NTP il écrit 2000-00-00, et afficher ça
     // ferait douter de tout le reste de la ligne, qui est pourtant juste.
