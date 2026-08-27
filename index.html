@@ -117,7 +117,7 @@ select:focus-visible,input:focus-visible,button:focus-visible,a:focus-visible{
      cherche pendant une heure un defaut de firmware alors que la page
      affichee datait de trois versions plus tot.
      A monter EN MEME TEMPS que CACHE dans service-worker.js. -->
-<div class="small" style="text-align:center;margin:-12px 0 16px;opacity:.65;">page v106</div>
+<div class="small" style="text-align:center;margin:-12px 0 16px;opacity:.65;">page v107</div>
 </div>
 
 <script>
@@ -1538,11 +1538,36 @@ function appliquerModeDlap(dlap) {
   });
 
   // L'historique appartient au DLAP seul -- le DLPT a deja sa propre carte
-  // de passages. On l'affiche seulement si le module sait vraiment le
-  // servir : un DLAP d'avant la version 2.0 n'expose pas DUMP, et un bouton
-  // qui ne repond jamais vaut moins que pas de bouton du tout.
+  // de passages.
+  //
+  // ⚠ NE PAS MASQUER EN SILENCE. Le 27 aout 2026, la carte disparaissait
+  // sans un mot parce que la pile Bluetooth du systeme servait une table
+  // GATT en cache, d'avant l'ajout des caracteristiques. On a cherche du
+  // cote du cache du navigateur, puis du firmware, pendant une heure.
+  // Une carte absente ne dit rien ; une carte qui explique se corrige.
   var ch = document.getElementById('cardHist');
-  if (ch) ch.style.display = (dlap && chrDump && chrCommand) ? '' : 'none';
+  var boite = document.getElementById('histTable');
+  var btn = document.getElementById('btnHist');
+  if (ch) {
+    ch.style.display = dlap ? '' : 'none';
+    if (dlap && (!chrDump || !chrCommand)) {
+      if (btn) btn.style.display = 'none';
+      if (boite) boite.innerHTML =
+        "<div class='err'><b>Ce DLAP ne sert pas son historique.</b><br><br>" +
+        "Deux causes possibles&nbsp;:<br><br>" +
+        "<b>1. Table Bluetooth en cache.</b> Ton appareil garde la liste des " +
+        "services d'avant la mise à jour du DLAP. Oublie <b>DLAP</b> dans les " +
+        "réglages Bluetooth du système, puis reconnecte-toi et saisis le code " +
+        "d'appairage.<br><br>" +
+        "<b>2. Firmware plus ancien que la version 2.0</b>, qui n'a pas " +
+        "l'historique.<br><br>" +
+        "<span class='small'>Manque&nbsp;: " +
+        (!chrCommand ? "commandes " : "") + (!chrDump ? "flux de données" : "") +
+        "</span></div>";
+    } else if (btn) {
+      btn.style.display = '';
+    }
+  }
 
   // ⚠ Le redemarrage passe par COMMAND, que le DLAP 2.0 expose desormais.
   // Le bouton reste malgre tout masque ici : ce panneau ne sert qu'aux
