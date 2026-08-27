@@ -14,7 +14,7 @@
 // ENCORE l'ancien filtre : tant qu'elle n'aura pas la meme correction, elle
 // continuera d'effacer ce cache-ci. Les deux doivent etre corrigees.
 const PREFIX = 'draglog-dev-';
-const CACHE = PREFIX + 'v102';
+const CACHE = PREFIX + 'v104';   // v103 : theme sombre + textes allegés
 const ASSETS = ['./', './index.html', './manifest.json', './logo.svg', './icon-192.webp', './icon-512.webp'];
 
 self.addEventListener('install', (ev) => {
