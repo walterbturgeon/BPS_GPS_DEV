@@ -14,7 +14,7 @@
 // ENCORE l'ancien filtre : tant qu'elle n'aura pas la meme correction, elle
 // continuera d'effacer ce cache-ci. Les deux doivent etre corrigees.
 const PREFIX = 'draglog-dev-';
-const CACHE = PREFIX + 'v107';   // v105 : etat de depot dans l historique DLAP
+const CACHE = PREFIX + 'v108';   // v108 : version du firmware affichee a cote de celle de la page
 const ASSETS = ['./', './index.html', './manifest.json', './logo.svg', './icon-192.webp', './icon-512.webp'];
 
 self.addEventListener('install', (ev) => {

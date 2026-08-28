@@ -117,7 +117,15 @@ select:focus-visible,input:focus-visible,button:focus-visible,a:focus-visible{
      cherche pendant une heure un defaut de firmware alors que la page
      affichee datait de trois versions plus tot.
      A monter EN MEME TEMPS que CACHE dans service-worker.js. -->
-<div class="small" style="text-align:center;margin:-12px 0 16px;opacity:.65;">page v107</div>
+<!-- ⚠ VERSION DU FIRMWARE, a cote de celle de la page.
+     Meme raison que ci-dessus, pour l'autre moitie du couple : sans elle on
+     cherche un defaut dans un firmware qu'on croit a jour. Remplie a la
+     connexion depuis la cle "fw" du JSON de config, que le DLPT2 et le DLAP
+     envoient tous les deux.
+     ⚠ AFFICHAGE SEULEMENT. Ne JAMAIS s'en servir pour decider quels
+     reglages montrer : ca se decide par les CLES du JSON. Un module reste
+     au champ doit rester pilotable meme si son numero est inconnu d'ici. -->
+<div class="small" style="text-align:center;margin:-12px 0 16px;opacity:.65;">page v108<span id="fwVer"></span></div>
 </div>
 
 <script>
@@ -1695,6 +1703,12 @@ async function refreshConfig() {
   // cles de son propre JSON, et l'option ECUMASTER doit etre reactivee avant
   // qu'on tente de la selectionner ci-dessous.
   appliquerCapacites(j);
+
+  // ⚠ AVANT le retour anticipe du DLAP : les deux appareils envoient "fw",
+  // et on veut la version affichee dans les deux cas. Place apres le
+  // return, elle n'apparaitrait jamais pour le DLAP.
+  var elFw = document.getElementById('fwVer');
+  if (elFw) elFw.textContent = j.fw ? (' · ' + j.fw) : ' · firmware inconnu';
 
   // Le DLAP n'a aucun des champs qui suivent : on remplit son panneau et on
   // sort, sinon on ecrirait "undefined" partout.
